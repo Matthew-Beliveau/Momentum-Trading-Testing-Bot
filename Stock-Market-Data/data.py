@@ -10,10 +10,10 @@ import pandas as pd
 import numpy as np
 import pyarrow
 import pytz
+from pandas import json_normalize
 
 
-# TODO: Implement date variable so add functionality for stock market
-# simulation.
+# TODO: implement date function to work on past date's data as if it were today
 def daily_equity_quotes(event, context):
     # Get the api key from cloud storage
     storage_client = storage.Client()
@@ -35,68 +35,53 @@ def daily_equity_quotes(event, context):
     clock = api.get_clock()
 
     try:
-        # potentially problematic line with not using current date.
-        # if clock.is_open is True:
-        if True:
-            # Get a current list of all the stocks symbols for the NYSE.
-            # Create a list of every letter in the alphabet.
-            # Each page has a letter for all those symbols.
-            # i.e. http://eodatta.com/stocklist/NYSE/A.html'
-            alpha = list(string.ascii_uppercase)
+        if clock.is_open is True:
+            # Call API endpoint to get snapshot of all symbols.
+            url = "https://api.polygon.io/v2/snapshot/locale/us/markets/stocks\
+                    /tickers/"
+            params = {
+                'apiKey': api_id,
+            }
 
-            symbols = []
-            # Loop through the letters in the alphabet to get the stocks on
-            # each page from the table and store them in a list
-            for each in alpha:
-                url = 'http://eoddata.com/stocklist/NYSE/{}.htm'.format(each)
-                resp = requests.get(url)
-                site = resp.content
-                soup = BeautifulSoup(site, 'html.parser')
-                table = soup.find('table', {'class': 'quotes'})
-                for row in table.findAll('tr')[1:]:
-                    symbols.append(row.findAll('td')[0].text.rstrip())
+            request = requests.get(
+                url=url,
+                params=params
+            ).json()
 
-            # Remove the extra letters.
-            symbols_clean = []
+            request.pop('status')
+            df = pd.json_normalize(request['tickers'], sep="_")
 
-            for each in symbols:
-                each = each.replace('.', '-')
-                symbols_clean.append((each.split('-')[0]))
+            # Add the date and fmt the dates for BQ
+            df['date'] = pd.to_datetime(today_fmt)
+            df['date'] = df['date'].dt.date
+            df = df.loc[df['lastQuote_p'] > 0]
+            # Add to bigquery
+            client = bigquery.Client()
 
-            # The Alpaca api has a limit to the number of requests that can be
-            # made for a single call, so we have to call only 200 at a time.
-            def chunks(l, n):
-                """
-                Takes in a list and how long you want
-                each chunk to be
-                """
-                n = max(1, n)
-                return (l[i:i+n] for i in range(0, len(l), n))
+            dataset_id = 'equity_data'
+            table_id = 'daily_quote_data'
 
+            dataset_ref = client.dataset(dataset_id)
+            table_ref = dataset_ref.table(table_id)
 
-            symbols_chunked = list(chunks(list(set(symbols_clean)), 200))
+            job_config = bigquery.LoadJobConfig()
+            job_config.source_format = bigquery.SourceFormat.CSV
+            job_config.autodetect = True
+            job_config.ignore_unknown_values = True
+            job = client.load_table_from_dataframe(
+                df,
+                table_ref,
+                location='US',
+                job_config=job_config
+            )
 
-            # Function for the api request to get the data from Alpaca
-            def quotes_request(stocks):
-                """
-                Makes an API call for a list of stock symbols and
-                returns a dataframe
-                """
-                barset = api.get_barset(stocks, 'day', 1)
-                time.sleep(1)
+            job.result()
 
-                return pd.DataFrame.from_dict(
-                    barset,
-                    orient='index'
-                    ).reset_index(drop=True)
+            return 'Success'
 
-            # Loop through the chunked list of symbols
-            # and call the api. Append all the resulting dataframs into one
-            df = pd.concat([quotes_request(each) for each in symbols_chunked])
-
+        else:
+            # Not Open
+            pass
     except KeyError:
         # Not a weekday
         pass
-
-
-daily_equity_quotes(None, None)

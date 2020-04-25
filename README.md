@@ -13,8 +13,8 @@ The Idea behind using a trading-bot is to be able to analyize historical data to
 ## Setup
 
 ### Installations
-`pip3 install alpaca-trade-api google-cloud-datastore \
-google-cloud-storage google-cloud-bigquery tdameritrade --user`
+For data.py:
+`pip3 install -r data_requirements.txt`
 
 ### Google Cloud Storage setup
 [Link](https://cloud.google.com/storage/docs/reference/libraries#client-libraries-install-python) to
