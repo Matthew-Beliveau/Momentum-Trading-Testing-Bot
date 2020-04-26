@@ -16,6 +16,9 @@ The Idea behind using a trading-bot is to be able to analyize historical data to
 For data.py:
 `pip3 install -r data_requirements.txt`
 
+For get_historical_data.py
+`pip3 install -r history_requirements.txt`
+
 ### Google Cloud Storage setup
 [Link](https://cloud.google.com/storage/docs/reference/libraries#client-libraries-install-python) to
 the setup for google cloud storage.
