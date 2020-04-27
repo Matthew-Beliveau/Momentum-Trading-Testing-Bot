@@ -5,22 +5,23 @@ from bs4 import BeautifulSoup
 import string
 import time
 from datetime import datetime
+import dateutil.relativedelta
 from google.cloud import storage
 import sys
 
-if(len(sys.argv) < 3):
-    print("Invalid amount of arguments. 2 needed: start-date, end-date"\
-            " (YY-MM-DD)")
+if(len(sys.argv) < 2):
+    print("Invalid number of inputs. Expected 1 int: time period in months ")
     exit(1)
 # Get the historical dates you need.
-from_date = sys.argv[1]
-to_date = sys.argv[2]
+to_date = datetime.strptime('2020-03-01', '%Y-%m-%d')
+from_date = to_date - dateutil.relativedelta.relativedelta(months=int(sys.argv[1]))
+from_fmt = from_date.strftime('%Y-%m-%d')
+to_fmt = to_date.strftime('%Y-%m-%d')
 
 # Get a current list of all the stocks symbols for the NYSE
 alpha = list(string.ascii_uppercase)
 
 symbols = []
-
 for each in alpha:
     url = 'http://eoddata.com/stocklist/NYSE/{}.htm'.format(each)
     resp = requests.get(url)
@@ -45,7 +46,7 @@ data_list = []
 
 for each in symbols_clean:
     url = fr"https://api.polygon.io/v2/aggs/ticker/{each}/range/1/day"\
-            fr"/{from_date}/{to_date}"
+            fr"/{from_fmt}/{to_fmt}"
     params = {
         'apiKey': api_id
     }
@@ -53,10 +54,13 @@ for each in symbols_clean:
     request = requests.get(
         url=url,
         params=params
-    )
+    ).json()
+    if(request.get('queryCount') == 0):
+        continue
 
-    data_list.append(request.json())
+    data_list.append(request)
     time.sleep(.5)
+
 # Create a list for each data point and loop through the json, adding the data
 # to the lists
 symbl_l, open_l, high_l, low_l, close_l = [], [], [], [], []
@@ -64,7 +68,6 @@ volume_l, date_l = [], []
 
 for data in data_list:
     symbol_name = data['ticker']
-    print(symbol_name)
     if symbol_name is None:
         continue
     try:
@@ -77,6 +80,8 @@ for data in data_list:
             volume_l.append(each['v'])
             date_l.append(each['t'])
     except KeyError:
+        pass
+    except TypeError:
         pass
 
 # Create a datafrom from the lists
@@ -95,6 +100,5 @@ df = pd.DataFrame(
 # Format the Dates
 df['date'] = pd.to_datetime(df['date'], unit='ms')
 df['date'] = df['date'].dt.strftime('%Y-%m-%d')
-
 # Save to csv
 df.to_csv(r'back_data.csv')
