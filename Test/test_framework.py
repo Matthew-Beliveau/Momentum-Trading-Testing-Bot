@@ -12,7 +12,7 @@ from pathlib import Path
   HISTORICAL_DATA_* are csv's for the historical data of the time frame
     specified in the name.
 """
-PREDICTION_MONTH = 'back_data.csv'
+PREDICTION_MONTH = 'prediction_month.csv'
 HISTORICAL_DATA_18_MONTHS = 'historical_data_18_months.csv'
 HISTORICAL_DATA_24_MONTHS = 'historical_data_24_months.csv'
 HISTORICAL_DATA_20_YEARS = 'historical_data_20_years.csv'
@@ -53,40 +53,39 @@ class DataFrameMethods:
         self.api = API(filename)
         self.df = pd.read_csv(self.api.historical_filename)
 
+    def get_symbol_list(self):
+        return [
+            each.symbol for each in self.api.list_assets(status='active')
+            if each.exchange == 'NASDAQ' or each.exchange == 'NYSE']
+
     def get_dataframe_at_date(self, date):
-        return self.df.loc[self.df['date'] == date]
+        return self.df.loc[self.df['date'] == date].reset_index(drop=True)
 
     def get_dataframe_between_dates(self, from_date, to_date):
-        return self.df[(self.df['date'] >= from_date) & (self.df['date'] <= to_date)]
+        return (self.df[(self.df['date'] >= from_date)
+                & (self.df['date'] <= to_date)].reset_index(drop=True))
 
     # Symbols in the NYSE and NASDAQ
     def get_stock_dataframe(self, symbol):
-        return self.df.loc[self.df['symbol'] == symbol]
-
-
-class NeuralNetworkMethods:
-
-    def run(self, LSTM=True, symbol, period):
-        print("do stuff")
+        return self.df.loc[self.df['symbol'] == symbol].reset_index(drop=True)
 
 
 class UnitTests(unittest.TestCase):
 
-    obj = DataFrameMethods(PREDICTION_MONTH)
+    obj = DataFrameMethods(HISTORICAL_DATA_20_YEARS)
 
-    # Not working yet.
-    def test_get_stock_data_dataframe(self):
-        s = 'A'
+    def test_get_stock_dataframe(self):
+        s = 'TESS'
         df = self.obj.get_stock_dataframe(s)
-        self.assertIn(s, df.loc['symbol'])
+        self.assertEqual(s, df['symbol'][0])
+
+    def test_get_dataframe_at_date(self):
+        date = '2019-01-10'
+        df = self.obj.get_dataframe_at_date(date)
+        s = df['date'][0]
+        print(s)
+        self.assertEqual(date, s)
 
 
 if __name__ == '__main__':
     unittest.main()
-
-
-class Long_Short_Term_Memory_OFF(unittest.TestCase):
-
-
-
-class Long_Short_Term_Memory_ON(unittest.TestCase):

@@ -23,8 +23,8 @@ def daily_equity_quotes(event, context):
     api_key = blob.download_as_string()[:-1].decode('utf-8')
     api_id = blob2.download_as_string()[:-1].decode('utf-8')
     api = tradeapi.REST(
-        key_id="AK2NSNGJPPFVOF5G6XA0",
-        secret_key="h8YQlQE9Ut5ILu2xZsTkpNTKlKgKihRhyLmKqeAO",
+        key_id="api_id",
+        secret_key="api_key",
         api_version='v2',
         base_url='https://api.alpaca.markets')
 
