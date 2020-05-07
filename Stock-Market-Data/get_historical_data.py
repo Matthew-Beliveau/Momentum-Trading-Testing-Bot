@@ -8,45 +8,44 @@ from datetime import datetime
 import dateutil.relativedelta
 from google.cloud import storage
 import sys
+import alpaca_trade_api as tradeapi
+import json
 
 if(len(sys.argv) < 2):
     print("Invalid number of inputs. Expected 1 int: time period in months ")
     exit(1)
-# Get the historical dates you need.
-to_date = datetime.strptime('2020-03-01', '%Y-%m-%d')
-from_date = to_date - dateutil.relativedelta.relativedelta(months=int(sys.argv[1]))
-from_fmt = from_date.strftime('%Y-%m-%d')
-to_fmt = to_date.strftime('%Y-%m-%d')
-
-# Get a current list of all the stocks symbols for the NYSE
-alpha = list(string.ascii_uppercase)
-
-symbols = []
-for each in alpha:
-    url = 'http://eoddata.com/stocklist/NYSE/{}.htm'.format(each)
-    resp = requests.get(url)
-    site = resp.content
-    soup = BeautifulSoup(site, 'html.parser')
-    table = soup.find('table', {'class': 'quotes'})
-    for row in table.findAll('tr')[1:]:
-        symbols.append(row.findAll('td')[0].text.rstrip())
-
-# Remove the extra letters on the end
-symbols_clean = []
-for each in symbols:
-    each = each.replace('.', '-')
-    symbols_clean.append((each.split('-')[0]))
 
 storage_client = storage.Client()
 bucket = storage_client.get_bucket('ai-final-project')
 blob = bucket.blob('alpaca-key-ID.txt')
+blob2 = bucket.blob('alpaca-key.txt')
 api_id = blob.download_as_string()[:-1].decode('utf-8')
+api_key = blob2.download_as_string()[:-1].decode('utf-8')
+api = tradeapi.REST(
+    key_id=api_id,
+    secret_key=api_key,
+    api_version='v2',
+    base_url='https://paper-api.alpaca.markets')
 
+
+def get_symbol_list():
+    return [
+        each.symbol for each in api.list_assets(status='active')
+        if each.exchange == 'NASDAQ' or each.exchange == 'NYSE']
+
+
+# Get the historical dates you need.
+to_date = datetime.strptime('2020-03-03', '%Y-%m-%d')
+from_date = to_date - dateutil.relativedelta.relativedelta(months=int(sys.argv[1]))
+from_fmt = from_date.strftime('%Y-%m-%d')
+to_fmt = to_date.strftime('%Y-%m-%d')
+
+symbols = get_symbol_list()
 data_list = []
-
-for each in symbols_clean:
+for each in symbols:
     url = fr"https://api.polygon.io/v2/aggs/ticker/{each}/range/1/day"\
             fr"/{from_fmt}/{to_fmt}"
+
     params = {
         'apiKey': api_id
     }
@@ -55,7 +54,8 @@ for each in symbols_clean:
         url=url,
         params=params
     ).json()
-    if(request.get('queryCount') == 0):
+
+    if(request.get('resultsCount') == 0):
         continue
 
     data_list.append(request)
@@ -67,7 +67,10 @@ symbl_l, open_l, high_l, low_l, close_l = [], [], [], [], []
 volume_l, date_l = [], []
 
 for data in data_list:
-    symbol_name = data['ticker']
+    try:
+        symbol_name = data['ticker']
+    except KeyError:
+        pass
     if symbol_name is None:
         continue
     try:

@@ -23,10 +23,10 @@ def daily_equity_quotes(event, context):
     api_key = blob.download_as_string()[:-1].decode('utf-8')
     api_id = blob2.download_as_string()[:-1].decode('utf-8')
     api = tradeapi.REST(
-        key_id=api_id,
-        secret_key=api_key,
+        key_id="AK2NSNGJPPFVOF5G6XA0",
+        secret_key="h8YQlQE9Ut5ILu2xZsTkpNTKlKgKihRhyLmKqeAO",
         api_version='v2',
-        base_url='https://paper-api.alpaca.markets')
+        base_url='https://api.alpaca.markets')
 
     # Check if the market was open today.  Convert to eastern time zone.
     today = datetime.today().astimezone(pytz.timezone("America/New_York"))
