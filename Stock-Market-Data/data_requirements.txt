@@ -1,4 +1,4 @@
-requests==2.22.0
+requests==2.31.0
 alpaca_trade_api==0.46
 pandas==1.0.3
 numpy==1.16.4
